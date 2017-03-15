@@ -63,17 +63,23 @@ resources:
         network: ext-net
       }
       
-#  Instance:
-#    type: OS::Nova::Server
-#    properties:
-#      #name: instance-cv3
-#      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'instance' ] ] }
-#      availability_zone: { get_param: 'AvailabilityZone' }
-#      flavor: { get_param: 'Flavor' }
-#      image: { get_param: 'Image' } 
-#      networks: 
-#        - network: { get_param: 'Network' }
-#      user_data: |
-#        #!/bin/bash
-#        apt-get update -y
-#      user_data_format: RAW
+  RouterInterface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: { get_resource: Router }
+      subnet: { get_resource: Subnet }
+      
+  Instance:
+    type: OS::Nova::Server
+    properties:
+      #name: instance-cv3
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'instance' ] ] }
+      availability_zone: { get_param: 'AvailabilityZone' }
+      flavor: { get_param: 'Flavor' }
+      image: { get_param: 'Image' } 
+      networks: 
+        - subnet: { get_param: 'Subnet' }
+      user_data: |
+        #!/bin/bash
+        apt-get update -y
+      user_data_format: RAW
