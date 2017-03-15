@@ -69,16 +69,15 @@ resources:
       router: { get_resource: Router }
       subnet: { get_resource: Subnet }
       
-  Instance:
+  Jump:
     type: OS::Nova::Server
     properties:
-      #name: instance-cv3
       name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'instance' ] ] }
       availability_zone: { get_param: 'AvailabilityZone' }
       flavor: { get_param: 'Flavor' }
       image: { get_param: 'Image' } 
       networks: 
-        - subnet: { get_param: 'Subnet' }
+        - subnet: { get_resource: 'Subnet' }
       user_data: |
         #!/bin/bash
         apt-get update -y
