@@ -37,7 +37,7 @@ parameters:
   JumpFloatingIpID:
     description: JumpFloatingIpID
     type: string
-    default: eb433cf6-3884-44f9-bbd2-22e7df9a2f00
+    default: 3811cd25-d5ce-4a86-b3b9-9ac63860fab9
   
 resources:
  Net:
@@ -102,9 +102,15 @@ resources:
       image: { get_param: 'Image' }
       networks:
        - port: { get_resource: JumpPort }
-      user_data: |
-        #!/bin/bash
-        apt-get update -y
+      user_data: 
+        str_replace:
+          template:
+            #!/bin/bash
+            hostanme $Environment-jump
+            echo "Hello World!!!"
+          params:
+            $Environment: { get_param: Environment }
+       
       user_data_format: RAW
  
  JumpFloatingIpAssociation:
