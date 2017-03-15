@@ -1,35 +1,35 @@
 ---
 heat_template_version: 2016-04-08
 
-description: Basic infrastructure template cv.4
+description: Basic Infrastructure cv.4
 
 parameters:
   Cvicenie:
     description: Cislo cvicenia
     type: string
     default: cv4
-
+    
   AvailabilityZone:
     description: Availability zone
     type: string
     default: any
-
+    
   Flavor:
     description: Flavor
     type: string
     default: Linux
-
+    
   Image:
     description: Image
     type: string
-    default: Ubuntu server 14.04 and64 KIS
-   
-  Environment:
-    description: Environment
+    default: Ubuntu server 14.04 amd64 KIS
+  
+  Enviroment:
+    description: Enviroment
     type: string
     default: test
     
-  SubnetCidrt:
+  SubnetCidr:
     description: SubnetCidr
     type: string
     default: 10.255.255.0/24
@@ -39,19 +39,30 @@ resources:
     type: OS::Neutron::Net
     properties:
       admin_state_up: True
-      name: { list_join: [ '-', [ { get_param: 'Environment' }, 'network' ] ] }
+      name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'network' ] ] }
       shared: False
-     
-Subnet:
-  type: OS::Neutron::Net
-  properties:
-    name: { list_join: [ '-', [ { get_param: 'Environment' }, 'subnet' ] ] }
-    cidr: { get_param: SubnetCidr }
-    dns_nameservers:
-      - 8.8.8.8
-      - 8.8.4.4
-    enable_dhcp: True
-
+      
+  Subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'subnet' ] ] }
+      cidr: { get_param: SubnetCidr }
+      dns_nameservers:
+        - 8.8.8.8
+        - 8.8.4.4
+      enable_dhcp: True
+      network: { get_resource: Net }
+      
+  Router:
+    type: OS::Neutron::Router
+    properties:
+      admin_state_up: True
+      name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'router' ] ] }
+      external_gateway_info: {
+        enable_snat: True,
+        network: ext-net
+      }
+      
 #  Instance:
 #    type: OS::Nova::Server
 #    properties:
@@ -59,11 +70,10 @@ Subnet:
 #      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'instance' ] ] }
 #      availability_zone: { get_param: 'AvailabilityZone' }
 #      flavor: { get_param: 'Flavor' }
-#      image: { get_param: 'Image' }
-      #network: { get_param: 'Network' }
-#      networks:
-#        - network: {get_param: 'Network'}
+#      image: { get_param: 'Image' } 
+#      networks: 
+#        - network: { get_param: 'Network' }
 #      user_data: |
-        #!/bin/bash
+#        #!/bin/bash
 #        apt-get update -y
 #      user_data_format: RAW
