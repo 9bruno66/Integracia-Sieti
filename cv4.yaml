@@ -34,6 +34,11 @@ parameters:
     type: string
     default: 10.255.255.0/24
     
+  JumpFloatingIpID:
+    description: JumpFloatingIpID
+    type: string
+    default: 3811cd25-d5ce-4a86-b3b9-9ac63860fab9
+    
 resources:
   Net:
     type: OS::Neutron::Net
@@ -86,3 +91,5 @@ resources:
   JumpFloatingIpAssocation:
     type: OS:Neutron::JumpFloatingIpAssocation
     properties:
+      floatingip_id: { get_param: JumpFLoatingIpID }
+      port_id: { get_resource: ProxyPort }
