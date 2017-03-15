@@ -108,7 +108,7 @@ resources:
       user_data_format: RAW
 
 
-App:
+  App:
     type: OS::Nova::Server
     properties:
       name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'App' ] ] }
