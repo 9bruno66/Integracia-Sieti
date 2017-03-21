@@ -79,16 +79,11 @@ resources:
     properties:
       name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'jump-private-security-group' ] ] }
       rules: [
-      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 158.193.0.0/16 },
+      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 158.193.0.0/16},
       { direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 158.193.0.0/16 },
       { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 158.193.0.0/16 },
-      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 158.193.0.0/16},
-    { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 10.255.0.0/16},
-      { direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 10.255.0.0/16 },
-      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 10.255.0.0/16 },
-      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 10.255.0.0/16},
-      ]
-
+      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 158.193.0.0/16} ]
+   
   JumpPort:
     type: OS::Neutron::Port
     properties:
@@ -113,6 +108,17 @@ resources:
         apt-get update -y
       user_data_format: RAW
 
+  AppSecurityGroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'app-private-security-group' ] ] }
+      rules: [
+      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 10.255.255.0/24},
+      { direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 10.255.255.0/24 },
+      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 10.255.255.0/24 },
+      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 10.255.255.0/24} ]
+      
+      
 
   App:
     type: OS::Nova::Server
@@ -122,13 +128,17 @@ resources:
       flavor: { get_param: 'Flavor' }
       image: { get_param: 'Image' } 
       security_groups:
-        - { get_resource: JumpSecurityGroup }
+        - { get_resource: AppSecurityGroup }
       networks: 
         - subnet: { get_resource: Subnet }
+        
       user_data: |
-        #!/bin/bash
-        apt-get install apache2-bin
-        apache2 start
+            #!/bin/bash
+            apt-get update -y
+            apt-get install apache2 -y
+            apache2 start
+          
+            
       user_data_format: RAW
 
   JumpFloatingIpAssociation:
@@ -136,3 +146,4 @@ resources:
     properties:
       floatingip_id: { get_param: JumpFloatingIpID }
       port_id: { get_resource: JumpPort }
+
