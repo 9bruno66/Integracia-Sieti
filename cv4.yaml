@@ -140,6 +140,27 @@ resources:
           
             
       user_data_format: RAW
+      
+  Proxy:
+    type: OS::Nova::Server
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'App' ] ] }
+      availability_zone: { get_param: 'AvailabilityZone' }
+      flavor: { get_param: 'Flavor' }
+      image: { get_param: 'Image' } 
+      security_groups:
+        - { get_resource: AppSecurityGroup }
+      networks: 
+        - subnet: { get_resource: Subnet }
+        
+      user_data: |
+            #!/bin/bash
+            apt-get update -y
+            apt-get install apache2 -y
+            apache2 start
+          
+            
+      user_data_format: RAW
 
   JumpFloatingIpAssociation:
     type: OS::Neutron::FloatingIPAssociation
