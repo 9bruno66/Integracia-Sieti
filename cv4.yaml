@@ -38,7 +38,12 @@ parameters:
     description: JumpFloatingIpID
     type: string
     default: 979d0edf-41e0-4ce0-aa58-bded78b98b10 
-    
+  
+  ProxyFloatingIpID:
+    description: ProxyFloatingIpID
+    type: string
+    default: 929cc9d6-b3b4-4d16-a358-f8692636fe3a 
+        
 resources:
   Net:
     type: OS::Neutron::Net
@@ -118,7 +123,14 @@ resources:
       { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 10.255.255.0/24 },
       { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 10.255.255.0/24} ]
       
-      
+  ProxySecurityGroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'proxy-private-security-group' ] ] }
+      rules: [
+      { direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 158.193.0.0/16 },
+      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 158.193.0.0/16 },
+      { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 158.193.0.0/16 } ]      
 
   App:
     type: OS::Nova::Server
@@ -141,25 +153,30 @@ resources:
             
       user_data_format: RAW
       
+  ProxyPort:
+    type: OS::Neutron::Port
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'proxy-port' ] ] }
+      fixed_ips:
+        - subnet: { get_resource: Subnet }
+      security_groups:
+        - { get_resource: ProxySecurityGroup }
+      network: { get_resource: Net }      
+      
   Proxy:
     type: OS::Nova::Server
     properties:
-      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'App' ] ] }
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'proxy' ] ] }
       availability_zone: { get_param: 'AvailabilityZone' }
       flavor: { get_param: 'Flavor' }
       image: { get_param: 'Image' } 
-      security_groups:
-        - { get_resource: AppSecurityGroup }
       networks: 
-        - subnet: { get_resource: Subnet }
-        
+        - port: { get_resource: ProxyPort }
       user_data: |
-            #!/bin/bash
-            apt-get update -y
-            apt-get install apache2 -y
-            apache2 start
-          
-            
+        #!/bin/bash
+        apt-get update -y
+        apt-get install apache2 -y
+        apache2 start
       user_data_format: RAW
 
   JumpFloatingIpAssociation:
@@ -167,4 +184,10 @@ resources:
     properties:
       floatingip_id: { get_param: JumpFloatingIpID }
       port_id: { get_resource: JumpPort }
+      
+  ProxyFloatingIpAssociation:
+    type: OS::Neutron::FloatingIPAssociationProxy
+    properties:
+      floatingip_id: { get_param: ProxyFloatingIpID }
+      port_id: { get_resource: ProxyPort }
 
