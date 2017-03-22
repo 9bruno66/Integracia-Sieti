@@ -150,6 +150,7 @@ resources:
             apt-get update -y
             apt-get install apache2 -y
             apache2 start
+            
           
             
       user_data_format: RAW
@@ -178,6 +179,31 @@ resources:
         apt-get update -y
         apt-get install apache2 -y
         apache2 start
+        cat > /etc/apache2/sites-available/25-integracia15.conf << EOF
+        <VirtualHost *:80>
+
+            ServerName      integracia-15.cloudkis.net
+            ServerAlias     integracia-15.cloudkis.net
+
+            ServerAdmin     9brno66@gmail.com
+
+            ProxyPreserveHost on
+            ProxyRequests off
+
+            ProxyPass / http://10.255.255.6/
+            ProxyPassReverse / http://10.255.255.6/
+
+            ErrorLog /var/log/apache2/integracia-15.cloudkis.net_app_server.log
+            CustomLog /var/log/apache2/integracia-15.cloudkis.net_access.log combined
+        </VirtualHost>
+        EOF
+        a2dissite 000-default.conf
+        a2ensite 25-integracia15.conf
+        a2enmod proxy
+        a2enmod proxy_http
+        service apache2 stop
+        service apache2 start
+        
       user_data_format: RAW
 
   JumpFloatingIpAssociation:
