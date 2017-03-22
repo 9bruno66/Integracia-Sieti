@@ -186,7 +186,7 @@ resources:
       port_id: { get_resource: JumpPort }
       
   ProxyFloatingIpAssociation:
-    type: OS::Neutron::FloatingIPAssociationProxy
+    type: OS::Neutron::ProxyFloatingIPAssociation
     properties:
       floatingip_id: { get_param: ProxyFloatingIpID }
       port_id: { get_resource: ProxyPort }
