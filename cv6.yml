@@ -249,8 +249,8 @@ resources:
             apt-get update -y
             apt-get install apache2 -y
             echo "<VirtualHost *:80>
-                    ServerName integracia-1.cloud-kis.net
-                    ServerAlias www.integracia-1.cloud-kis.net
+                    ServerName integracia-15.cloud-kis.net
+                    ServerAlias www.integracia-15.cloud-kis.net
 
                     ServerAdmin webmaster@localhost
 
@@ -260,8 +260,8 @@ resources:
                     ProxyPass / http://$IPadresa/
                     ProxyPassReverse / http://$IPadresa/
 
-                    ErrorLog ${APACHE_LOG_DIR}/integracia-1.cloud-kis.net_error.log
-                    CustomLog ${APACHE_LOG_DIR}/integracia-1.cloud-kis.net_access.log combined
+                    ErrorLog ${APACHE_LOG_DIR}/integracia-15.cloud-kis.net_error.log
+                    CustomLog ${APACHE_LOG_DIR}/integracia-15.cloud-kis.net_access.log combined
 
                   </VirtualHost>" >> /etc/apache2/sites-available/001-proxy.conf
             a2dissite 000-default.conf
