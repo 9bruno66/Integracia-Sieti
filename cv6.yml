@@ -1,12 +1,12 @@
 ---
 heat_template_version: 2016-04-08
-description: Basic infractructure template cv.5
+description: Basic infractructure template cv.4
 
 parameters:
   Cvicenie:
     description: Cislo cvicenia
     type: string
-    default: cv5
+    default: cv4
 
   AvailibilityZone:
     description: Availability zone
@@ -28,20 +28,25 @@ parameters:
     type: string
     default: test
   
-  SubnetCidr:
-    description: SubnetCidr
+  SubnetCidrPrivate:
+    description: SubnetCidrPrivate
     type: string
     default: 10.255.255.0/24
+    
+  SubnetCidrPublic:
+    description: SubnetCidrPublic
+    type: string
+    default: 10.255.254.0/24
     
   JumpFloatingIpID:
     description: JumpFloatingIpID
     type: string
-    default: 979d0edf-41e0-4ce0-aa58-bded78b98b10
+    default: 63a61fe9-5206-4e43-b65f-3c3bcd2cbb70
     
   ProxyFloatingIpID:
     description: ProxyFloatingIpID
     type: string
-    default: 929cc9d6-b3b4-4d16-a358-f8692636fe3a
+    default: ce58118a-399f-4079-94ec-be773f566a12
 
 resources:
   Net:
@@ -51,11 +56,25 @@ resources:
       name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'network' ] ] }
       shared: False
 
-  Subnet:
+  SubnetPrivate:
     type: OS::Neutron::Subnet
     properties:
       name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'network' ] ] }
-      cidr: { get_param: SubnetCidr }
+      cidr: { get_param: SubnetCidrPrivate }
+      dns_nameservers:
+        - 8.8.8.8
+        - 8.8.4.4
+      enable_dhcp: True
+      host_routes: [
+        { nexthop: 10.255.255.1, destination: 10.255.254.0/24 }
+      ]
+      network: { get_resource: Net }
+      
+  SubnetPublic:
+    type: OS::Neutron::Subnet
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'network' ] ] }
+      cidr: { get_param: SubnetCidrPublic }
       dns_nameservers:
         - 8.8.8.8
         - 8.8.4.4
@@ -76,7 +95,13 @@ resources:
     type: OS::Neutron::RouterInterface
     properties:
       router: { get_resource: Router }
-      subnet: { get_resource: Subnet }
+      subnet: { get_resource: SubnetPrivate }
+      
+  RouterInterface2:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: { get_resource: Router }
+      subnet: { get_resource: SubnetPublic }
       
   JumpPrivateSecurityGroup:
     type: OS::Neutron::SecurityGroup
@@ -109,11 +134,15 @@ resources:
 #        {  direction: egress, ethertype: IPv4, protocol: udp, port_range_min: 1, port_range_max: 65535, remote_ip_prefix: 10.255.255.0/24 },
 #        {  direction: egress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 10.255.255.0/24 },
         {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 10.255.254.0/24 },
         {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 10.255.254.0/24 },
         {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 158.193.0.0/16 },
         {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 10.255.254.0/24 },
         {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 158.193.0.0/16 },
         {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 3128, port_range_max: 3128, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 3128, port_range_max: 3128, remote_ip_prefix: 10.255.254.0/24 },
         {  direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 10.255.255.0/24 }    
       ]
       
@@ -122,7 +151,7 @@ resources:
     properties:
       name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'jump-port' ] ] }
       fixed_ips:
-        - subnet: { get_resource: Subnet }
+        - subnet: { get_resource: SubnetPublic }
       security_groups:
         - { get_resource: JumpPrivateSecurityGroup }
       network: { get_resource: Net }
@@ -131,7 +160,7 @@ resources:
     type: OS::Neutron::Port
     properties:
       name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'proxy-port' ] ] }
-      fixed_ips: [{ subnet: { get_resource: Subnet }, ip_address: 10.255.255.254 }]
+      fixed_ips: [{ subnet: { get_resource: SubnetPublic }, ip_address: 10.255.254.254 }]
       security_groups:
         - { get_resource: ProxyPrivateSecurityGroup }
       network: { get_resource: Net }
@@ -141,7 +170,7 @@ resources:
     properties:
       name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'app-port' ] ] }
       fixed_ips:
-        - subnet: { get_resource: Subnet }
+        - subnet: { get_resource: SubnetPrivate }
       security_groups:
         - { get_resource: AppPrivateSecurityGroup }
       network: { get_resource: Net }
@@ -195,9 +224,9 @@ resources:
                       </body>
                   </html>    
                  " > /var/www/html/index.html
-            echo "export http_proxy=http://10.255.255.254:3128
-                  export https_proxy=http://10.255.255.254:3128
-                  export apt_proxy=http://10.255.255.254:3128" >> /etc/profile 
+            echo "export http_proxy=http://10.255.254.254:3128
+                  export https_proxy=http://10.255.254.254:3128
+                  export apt_proxy=http://10.255.254.254:3128" >> /etc/profile 
           params:
             $Enviroment: { get_param: Enviroment }
       user_data_format: RAW
