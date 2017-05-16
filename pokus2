@@ -1,0 +1,283 @@
+---
+heat_template_version: 2016-04-08
+description: Basic infractructure template cv.6
+
+parameters:
+  Cvicenie:
+    description: Cislo cvicenia
+    type: string
+    default: cv6
+
+  AvailibilityZone:
+    description: Availability zone
+    type: string
+    default: any
+
+  Flavor:
+    description: Flavor
+    type: string
+    default: linux
+
+  Image:
+    description: image
+    type: string
+    default: ubuntu_server_14.04_amd64_KIS
+
+  Enviroment:
+    description: Enviroment
+    type: string
+    default: test
+  
+  SubnetCidrPrivate:
+    description: SubnetCidrPrivate
+    type: string
+    default: 10.255.255.0/24
+    
+  SubnetCidrPublic:
+    description: SubnetCidrPublic
+    type: string
+    default: 10.255.254.0/24
+    
+  JumpFloatingIpID:
+    description: JumpFloatingIpID
+    type: string
+    default: 63a61fe9-5206-4e43-b65f-3c3bcd2cbb70
+    
+  ProxyFloatingIpID:
+    description: ProxyFloatingIpID
+    type: string
+    default: ce58118a-399f-4079-94ec-be773f566a12
+
+resources:
+  Net:
+    type: OS::Neutron::Net
+    properties:
+      admin_state_up: True
+      name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'network' ] ] }
+      shared: False
+
+  SubnetPrivate:
+    type: OS::Neutron::Subnet
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'network' ] ] }
+      cidr: { get_param: SubnetCidrPrivate }
+      dns_nameservers:
+        - 8.8.8.8
+        - 8.8.4.4
+      enable_dhcp: True
+      host_routes: [
+        { nexthop: 10.255.255.1, destination: 10.255.254.0/24 }
+      ]
+      network: { get_resource: Net }
+      
+  SubnetPublic:
+    type: OS::Neutron::Subnet
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'network' ] ] }
+      cidr: { get_param: SubnetCidrPublic }
+      dns_nameservers:
+        - 8.8.8.8
+        - 8.8.4.4
+      enable_dhcp: True
+      network: { get_resource: Net }
+      
+  Router:
+    type: OS::Neutron::Router
+    properties:
+      admin_state_up: True
+      name: { list_join: [ '-', [ { get_param: 'Enviroment' }, 'router' ] ] }
+      external_gateway_info: {
+        enable_snat: True,
+        network: ext-net
+      }
+
+  RouterInterface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: { get_resource: Router }
+      subnet: { get_resource: SubnetPrivate }
+      
+  RouterInterface2:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: { get_resource: Router }
+      subnet: { get_resource: SubnetPublic }
+      
+  JumpPrivateSecurityGroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'jump-private-security-group' ] ] }
+      rules: [
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 158.193.0.0/16 },
+        {  direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 158.193.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 91.127.0.0/16 }
+        ]
+      
+  AppPrivateSecurityGroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'app-private-security-group' ] ] }
+      rules: [
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 158.193.0.0/16 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 158.193.0.0/16 },
+        {  direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 10.255.255.0/24 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 91.127.0.0/16 }  ]
+      
+  ProxyPrivateSecurityGroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'proxy-private-security-group' ] ] }
+      rules: [
+#        {  direction: egress, ethertype: IPv4, protocol: tcp, port_range_min: 1, port_range_max: 65535, remote_ip_prefix: 10.255.255.0/24 },
+#        {  direction: egress, ethertype: IPv4, protocol: udp, port_range_min: 1, port_range_max: 65535, remote_ip_prefix: 10.255.255.0/24 },
+#        {  direction: egress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 10.255.254.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 10.255.254.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 158.193.0.0/16 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 10.255.254.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 158.193.0.0/16 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 3128, port_range_max: 3128, remote_ip_prefix: 10.255.255.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 3128, port_range_max: 3128, remote_ip_prefix: 10.255.254.0/24 },
+        {  direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 10.255.255.0/24 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 22, port_range_max: 22, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: icmp, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 80, port_range_max: 80, remote_ip_prefix: 91.127.0.0/16 },
+        { direction: ingress, ethertype: IPv4, protocol: tcp, port_range_min: 443, port_range_max: 443, remote_ip_prefix: 91.127.0.0/16 }
+        ]
+      
+  JumpPort:
+    type: OS::Neutron::Port
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'jump-port' ] ] }
+      fixed_ips:
+        - subnet: { get_resource: SubnetPublic }
+      security_groups:
+        - { get_resource: JumpPrivateSecurityGroup }
+      network: { get_resource: Net }
+      
+  ProxyPort:
+    type: OS::Neutron::Port
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'proxy-port' ] ] }
+      fixed_ips: [{ subnet: { get_resource: SubnetPublic }, ip_address: 10.255.254.254 }]
+      security_groups:
+        - { get_resource: ProxyPrivateSecurityGroup }
+      network: { get_resource: Net }
+      
+  AppPort:
+    type: OS::Neutron::Port
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'app-port' ] ] }
+      fixed_ips:
+        - subnet: { get_resource: SubnetPrivate }
+      security_groups:
+        - { get_resource: AppPrivateSecurityGroup }
+      network: { get_resource: Net }
+      
+  AppPort2:
+    type: OS::Neutron::Port
+    properties:
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'app-port2' ] ] }
+      fixed_ips:
+        - subnet: { get_resource: SubnetPrivate }
+      security_groups:
+        - { get_resource: AppPrivateSecurityGroup }
+      network: { get_resource: Net }
+      
+  Jump:
+    type: OS::Nova::Server
+    properties:
+      #name: instance-cv3
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'jump' ] ] }
+      availability_zone: { get_param: 'AvailibilityZone' }
+      flavor: { get_param: 'Flavor' }
+      image: { get_param: 'Image' }
+      networks: 
+        - port: { get_resource: 'JumpPort' }
+      user_data: 
+        str_replace:
+          template: |
+            #!/bin/bash
+            hostname $Enviroment-jump
+            echo "Hello World !!!"
+          params:
+            $Enviroment: { get_param: Enviroment }
+      user_data_format: RAW
+      
+  App:
+    type: OS::Nova::Server
+    properties:
+      #name: instance-cv3
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'app' ] ] }
+      availability_zone: { get_param: 'AvailibilityZone' }
+      flavor: { get_param: 'Flavor' }
+      image: { get_param: 'Image' }
+      networks: 
+        - port: { get_resource: 'AppPort' }
+      user_data:
+            #!/bin/bash
+            hostname $Enviroment-app
+            apt-get update -y
+            apt-get install apache2 -y  
+            
+      user_data_format: RAW
+      
+  App2:
+    type: OS::Nova::Server
+    properties:
+      #name: instance-cv3
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'app2' ] ] }
+      availability_zone: { get_param: 'AvailibilityZone' }
+      flavor: { get_param: 'Flavor' }
+      image: { get_param: 'Image' }
+      networks: 
+        - port: { get_resource: 'AppPort2' }
+      user_data:
+            #!/bin/bash
+            hostname $Enviroment-app
+            apt-get update -y
+            apt-get install apache2 -y  
+            
+      user_data_format: RAW
+           
+  Proxy:
+    type: OS::Nova::Server
+    properties:
+      #name: instance-cv3
+      name: { list_join: [ '-', [ { get_param: 'Cvicenie' }, 'proxy' ] ] }
+      availability_zone: { get_param: 'AvailibilityZone' }
+      flavor: { get_param: 'Flavor' }
+      image: { get_param: 'Image' }
+      networks: 
+        - port: { get_resource: 'ProxyPort' }
+      user_data:
+            #!/bin/bash
+            hostname $Enviroment-proxy
+            apt-get update -y
+            apt-get install apache2 -y
+          
+      user_data_format: RAW
+      
+  JumpFloatingIpAssociation:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_param: JumpFloatingIpID }
+      port_id: { get_resource: JumpPort }
+      
+  ProxyFloatingIpAssociation:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_param: ProxyFloatingIpID }
+      port_id: { get_resource: ProxyPort }
